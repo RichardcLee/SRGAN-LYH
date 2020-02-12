@@ -1,0 +1,48 @@
+python train.py -h
+
+python train.py --train_set_path=/home/ubuntu/lyh2/data/Train/Crop_Original --validation_set_path=/home/ubuntu/lyh2/data/Validation/Original --batch_size=64 --num_epochs=200 --wight_decay=0
+
+python test_image.py --image_path=C:\Users\81955\Desktop\SR-lyh\images --model_path=C:\Users\81955\Desktop\saved-models\netG_epoch_4x_40.pth --save_path=C:\Users\81955\Desktop\40-images
+
+
+Adam：weight_decay=0
+论文：adam 参数优化 arXiv:1711.05101
+
+
+由于训练数据图尺寸都为480*480，且随机裁剪后的尺寸固定为80*80，所以使用 torch.backends.cudnn.benchmark = True，
+It enables benchmark mode in cudnn.
+benchmark mode is good whenever your input sizes for your network do not vary. This way, cudnn will look for the optimal set of algorithms for that particular configuration (which takes some time). This usually leads to faster runtime.
+But if your input sizes changes at each iteration, then cudnn will benchmark every time a new size appears, possibly leading to worse runtime performances.
+使用benchmark以启动CUDNN_FIND自动寻找最快的操作，当计算图不会改变的时候（每次输入形状相同，模型不改变）的情况下可以提高性能，反之则降低性能
+
+
+周期性的使用torch.cuda.empty_cache()，已清空无用变量，节省GPU显存。
+
+
+预先分配内存空间：pin_memory + non_blocking async GPU trainin
+Variable.to(non_blocking=True) 该参数，异步加载数据到GPU。
+Use pinned memory, and use non_blocking=True to parallelize data transfer and GPU number crunching
+使用固定的内存缓冲区
+当副本来自固定（页锁）内存时，主机到GPU的复制速度要快很多。CPU张量和存储开放了一个pin_memory()方法，它返回该对象的副本，而它的数据放在固定区域中。
+另外，一旦固定了张量或存储，就可以使用异步的GPU副本。只需传递一个额外的non_blocking=True参数到cuda()的调用。这可以用于将数据传输与计算重叠。
+通过将pin_memory=True传递给其构造函数，可以使DataLoader将batch返回到固定内存中。
+
+
+选择： num_work=8
+
+num_works = 4, cost:  98.3764066696167 s, 98.24562740325928 s
+num_works = 6, cost:  86.56221103668213 s, 88.97343707084656 s, 97.27200865745544 s
+num_works = 8  训练集和测试集共cost(注释无关代码，benmark=False, 仅迭代一次): 77.00637483596803s,  77.09705829620361 s, 76.153644323349 s,  76.32119011878967 s
+num_works = 10, cost:  76.91926836967468 s, 76.85306119918823 s, 
+num_works = 12 ， cost: 78.77795672416687 s, 77.51553797721863 s, 77.17987298965454 s
+
+num_rowks=8, epoch=2,benchmark=False, cost : 151.97579169273376 s, 150.83788633346558 s
+num_rowks=8, epoch=2,benchmark=True, cost :150.81610465049744 s
+
+
+with torch.no_grad() 加快计算，避免计算图。
+
+
+
+默认配置：
+one epoch  cost :187.889014s, 177.086250s, 178.749848s, 172.792138s, 172.064258s, 171.873210s, 175.763906s， 174.902641s, 
